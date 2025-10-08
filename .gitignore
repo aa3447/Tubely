@@ -1,5 +1,7 @@
 out
 *.db
 .env
+.env.example
 assets/
 samples/
+*.txt
