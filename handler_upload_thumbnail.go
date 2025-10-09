@@ -50,6 +50,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusBadRequest, "Couldn't get thumbnail from form", err)
 		return
 	}
+	
 	contentType, _, err := mime.ParseMediaType(imageHeader.Header.Get("Content-Type"))
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Couldn't parse media type", err)
@@ -59,6 +60,7 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		respondWithError(w, http.StatusBadRequest, "File is not an supported image", nil)
 		return
 	}
+	
 	extension := strings.Split(contentType, "/")[1]
 	defer imageMultiFile.Close()
 
