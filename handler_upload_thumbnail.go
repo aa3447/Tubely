@@ -3,8 +3,11 @@ package main
 import (
 	"fmt"
 	"io"
+	"os"
+	"strings"
+	"mime"
 	"net/http"
-	"encoding/base64"
+	"path/filepath"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
@@ -42,19 +45,22 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	imageFile, imageHeader, err := r.FormFile("thumbnail")
+	imageMultiFile, imageHeader, err := r.FormFile("thumbnail")
 	if err != nil {
 		respondWithError(w, http.StatusBadRequest, "Couldn't get thumbnail from form", err)
 		return
 	}
-	contentType := imageHeader.Header.Get("Content-Type")
-	defer imageFile.Close()
-
-	imageData, err := io.ReadAll(imageFile)
+	contentType, _, err := mime.ParseMediaType(imageHeader.Header.Get("Content-Type"))
 	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "Couldn't read image file", err)
+		respondWithError(w, http.StatusBadRequest, "Couldn't parse media type", err)
 		return
 	}
+	if !strings.HasSuffix(contentType, "jpeg") && !strings.HasSuffix(contentType, "png") {
+		respondWithError(w, http.StatusBadRequest, "File is not an supported image", nil)
+		return
+	}
+	extension := strings.Split(contentType, "/")[1]
+	defer imageMultiFile.Close()
 
 	databaseVideo , err := cfg.db.GetVideo(videoID)
 	if err != nil {
@@ -70,10 +76,25 @@ func (cfg *apiConfig) handlerUploadThumbnail(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	encodedImageString := base64.StdEncoding.EncodeToString(imageData)
-	dataURL := fmt.Sprintf("data:%s;base64,%s", contentType, encodedImageString)
 
-	databaseVideo.ThumbnailURL = &dataURL
+	fileName := fmt.Sprintf("%s.%s", videoID.String(), extension)
+	imageFilePath := filepath.Join(cfg.assetsRoot, fileName)
+
+	file, err := os.Create(imageFilePath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't create image file", err)
+		return
+	}
+	defer file.Close()
+
+	_, err = io.Copy(file, imageMultiFile)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't save image file", err)
+		return
+	}
+
+	thumbnailURL := fmt.Sprintf("http://localhost:%s/assets/%s.%s", cfg.port, videoID.String(), extension)
+	databaseVideo.ThumbnailURL = &thumbnailURL
 
 	err = cfg.db.UpdateVideo(databaseVideo)
 	if err != nil {
