@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
+	"fmt"
 	"net/http"
+	"os/exec"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
@@ -117,4 +120,49 @@ func (cfg *apiConfig) handlerVideosRetrieve(w http.ResponseWriter, r *http.Reque
 	}
 
 	respondWithJSON(w, http.StatusOK, videos)
+}
+
+func (cfg *apiConfig) getVideoAspectRatio(filePath string) (string, error){
+	type videoMetaData struct {
+		Streams []struct {
+			Width  int `json:"width"`
+			Height int `json:"height"`
+		} `json:"streams"`
+	}
+
+	const landscapeMinRatio float32 = 1.70
+	const landscapeMaxRatio float32 = 1.82
+	const portraitMinRatio float32 = 0.55
+	const portraitMaxRatio float32 = 0.59
+	
+	var buffer bytes.Buffer
+	cmd := exec.Command("ffprobe", "-v", "error", "-print_format", "json", "-show_streams", filePath)
+	cmd.Stdout = &buffer
+
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	var metaData videoMetaData
+	err = json.Unmarshal(buffer.Bytes(), &metaData)
+	if err != nil {
+		return "", err
+	}
+
+	if len(metaData.Streams) == 0 {
+		return "", fmt.Errorf("unable to retrieve video metadata")
+	}
+
+	width := metaData.Streams[0].Width
+	height := metaData.Streams[0].Height
+	ratio := float32(width) / float32(height)
+
+	if ratio >= landscapeMinRatio && ratio <= landscapeMaxRatio {
+		return "landscape", nil
+	} else if ratio >= portraitMinRatio && ratio <= portraitMaxRatio {
+		return "portrait", nil
+	} else {
+		return "other", nil
+	}
 }

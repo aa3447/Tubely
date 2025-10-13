@@ -91,6 +91,12 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	aspectRatio , err := cfg.getVideoAspectRatio(tempVideo.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't get video aspect ratio", err)
+		return
+	}
+
 	_, err = tempVideo.Seek(0, io.SeekStart)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't seek to beginning of temp file", err)
@@ -101,7 +107,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	rand.Read(key)
 	mediaNameEncoded := make([]byte, base64.RawURLEncoding.EncodedLen(len(key)))
  	base64.RawURLEncoding.Encode(mediaNameEncoded, key)
-	videoKey := string(mediaNameEncoded) + ".mp4"
+	videoKey := aspectRatio + "/" + string(mediaNameEncoded) + ".mp4"
 	
 	params := &s3.PutObjectInput{
 		Bucket:      &cfg.s3Bucket,
