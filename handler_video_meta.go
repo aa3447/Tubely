@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"strings"
 
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/auth"
 	"github.com/bootdotdev/learn-file-storage-s3-golang-starter/internal/database"
@@ -165,4 +166,21 @@ func (cfg *apiConfig) getVideoAspectRatio(filePath string) (string, error){
 	} else {
 		return "other", nil
 	}
+}
+
+func (cfg *apiConfig) processVideoForFastStart(filePath string) (string, error) {
+	filePathBeforeExt, filePathAfterExt, found  := strings.Cut(filePath, ".")
+	if !found {
+		return "", fmt.Errorf("file path does not have an extension")
+	}
+	processedFilePath := filePathBeforeExt + "-faststart." + filePathAfterExt
+
+	
+	cmd := exec.Command("ffmpeg", "-i", filePath, "-c", "copy", "-movflags", "faststart", "-f", "mp4", processedFilePath)
+	err := cmd.Run()
+	if err != nil {
+		return "", err
+	}
+
+	return processedFilePath, nil
 }

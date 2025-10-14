@@ -82,14 +82,14 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		respondWithError(w, http.StatusInternalServerError, "Couldn't create temp file", err)
 		return
 	}
-	defer os.Remove(tempVideo.Name())
-	defer tempVideo.Close()
+	
 	
 	_, err = io.Copy(tempVideo, videoMultiFile)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "Couldn't write to temp file", err)
 		return
 	}
+
 
 	aspectRatio , err := cfg.getVideoAspectRatio(tempVideo.Name())
 	if err != nil {
@@ -103,6 +103,23 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	
+	processedFilePath, err := cfg.processVideoForFastStart(tempVideo.Name())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't process video for fast start", err)
+		return
+	}
+	os.Remove(tempVideo.Name())
+	tempVideo.Close()
+	
+	processedVideo, err := os.Open(processedFilePath)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "Couldn't open processed video file", err)
+		return
+	}
+	defer os.Remove(processedFilePath)
+	defer processedVideo.Close()
+
 	key := make([]byte, 32)
 	rand.Read(key)
 	mediaNameEncoded := make([]byte, base64.RawURLEncoding.EncodedLen(len(key)))
@@ -112,7 +129,7 @@ func (cfg *apiConfig) handlerUploadVideo(w http.ResponseWriter, r *http.Request)
 	params := &s3.PutObjectInput{
 		Bucket:      &cfg.s3Bucket,
 		Key:         &videoKey,
-		Body:        tempVideo,
+		Body:        processedVideo,
 		ContentType: &contentType,
 	}
 	
