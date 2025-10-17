@@ -6,3 +6,4 @@ assets/
 samples/
 *.txt
 aws/
+.vscode/
