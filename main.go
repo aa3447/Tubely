@@ -25,6 +25,7 @@ type apiConfig struct {
 	s3Region         string
 	s3CfDistribution string
 	port             string
+	s3CfDistro	  	 string
 }
 
 type thumbnail struct {
@@ -85,6 +86,11 @@ func main() {
 	if port == "" {
 		log.Fatal("PORT environment variable is not set")
 	}
+
+	cdnUrl := os.Getenv("S3_CF_DISTRO")
+	if cdnUrl == "" {
+		log.Fatal("S3_CF_DISTRO environment variable is not set")
+	}
 	
 	awsCfg, err := config.LoadDefaultConfig(context.Background(),config.WithRegion(s3Region))
 	if err != nil {
@@ -99,11 +105,12 @@ func main() {
 		platform:         platform,
 		filepathRoot:     filepathRoot,
 		assetsRoot:       assetsRoot,
-		s3Client:		 awsClient,
+		s3Client:		  awsClient,
 		s3Bucket:         s3Bucket,
 		s3Region:         s3Region,
 		s3CfDistribution: s3CfDistribution,
 		port:             port,
+		s3CfDistro:		  cdnUrl,
 	}
 
 	err = cfg.ensureAssetsDir()

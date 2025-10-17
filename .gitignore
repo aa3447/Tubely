@@ -7,3 +7,4 @@ samples/
 *.txt
 aws/
 .vscode/
+archive/
